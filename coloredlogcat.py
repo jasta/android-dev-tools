@@ -24,10 +24,6 @@
 import os, sys, re, StringIO
 import fcntl, termios, struct
 
-# unpack the current terminal width/height
-data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
-HEIGHT, WIDTH = struct.unpack('hh',data)
-
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
 def format(fg=None, bg=None, bright=False, bold=False, dim=False, reset=False):
@@ -45,23 +41,10 @@ def format(fg=None, bg=None, bright=False, bold=False, dim=False, reset=False):
     return "\033[%sm" % (";".join(codes))
 
 
-def indent_wrap(message, indent=0, width=80):
-    wrap_area = width - indent
-    messagebuf = StringIO.StringIO()
-    current = 0
-    while current < len(message):
-        next = min(current + wrap_area, len(message))
-        messagebuf.write(message[current:next])
-        if next < len(message):
-            messagebuf.write("\n%s" % (" " * indent))
-        current = next
-    return messagebuf.getvalue()
-
-
 LAST_USED = [RED,GREEN,YELLOW,BLUE,MAGENTA,CYAN,WHITE]
 KNOWN_TAGS = {
-    "dalvikvm": BLUE,
-    "Process": BLUE,
+    "dalvikvm": BLACK,
+    "Process": YELLOW,
     "ActivityManager": CYAN,
     "ActivityThread": CYAN,
 }
@@ -72,8 +55,9 @@ def allocate_color(tag):
     if not tag in KNOWN_TAGS:
         KNOWN_TAGS[tag] = LAST_USED[0]
     color = KNOWN_TAGS[tag]
-    LAST_USED.remove(color)
-    LAST_USED.append(color)
+    if color in LAST_USED:
+        LAST_USED.remove(color)
+        LAST_USED.append(color)
     return color
 
 
@@ -81,17 +65,17 @@ RULES = {
     #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
 }
 
-TAGTYPE_WIDTH = 3
+TAGTYPE_WIDTH = 1
 TAG_WIDTH = 20
 PROCESS_WIDTH = 8 # 8 or -1
 HEADER_SIZE = TAGTYPE_WIDTH + 1 + TAG_WIDTH + 1 + PROCESS_WIDTH + 1
 
 TAGTYPES = {
-    "V": "%s%s%s " % (format(fg=WHITE, bg=BLACK), "V".center(TAGTYPE_WIDTH), format(reset=True)),
-    "D": "%s%s%s " % (format(fg=BLACK, bg=BLUE), "D".center(TAGTYPE_WIDTH), format(reset=True)),
-    "I": "%s%s%s " % (format(fg=BLACK, bg=GREEN), "I".center(TAGTYPE_WIDTH), format(reset=True)),
-    "W": "%s%s%s " % (format(fg=BLACK, bg=YELLOW), "W".center(TAGTYPE_WIDTH), format(reset=True)),
-    "E": "%s%s%s " % (format(fg=BLACK, bg=RED), "E".center(TAGTYPE_WIDTH), format(reset=True)),
+    "V": "",
+    "D": format(fg=BLUE, bold=True),
+    "I": "",
+    "W": format(fg=YELLOW, bold=True),
+    "E": format(fg=RED, bold=True),
 }
 
 retag = re.compile("^([A-Z])/([^\(]+)\(([^\)]+)\): (.*)$")
@@ -116,30 +100,21 @@ while True:
         tagtype, tag, owner, message = match.groups()
         linebuf = StringIO.StringIO()
 
-        # center process info
-        if PROCESS_WIDTH > 0:
-            owner = owner.strip().center(PROCESS_WIDTH)
-            linebuf.write("%s%s%s " % (format(fg=BLACK, bg=BLACK, bright=True), owner, format(reset=True)))
-
-        # right-align tag title and allocate color if needed
-        tag = tag.strip()
-        color = allocate_color(tag)
-        tag = tag[-TAG_WIDTH:].rjust(TAG_WIDTH)
-        linebuf.write("%s%s %s" % (format(fg=color, dim=False), tag, format(reset=True)))
-
         # write out tagtype colored edge
         if not tagtype in TAGTYPES: break
-        linebuf.write(TAGTYPES[tagtype])
+        linebuf.write("%s%s%s" % (TAGTYPES[tagtype], tagtype, format(reset=True)))
 
-        # insert line wrapping as needed
-        message = indent_wrap(message, HEADER_SIZE, WIDTH)
+        color = allocate_color(tag)
+        linebuf.write(" / %s%s%s" % (format(fg=color, bold=True), tag, format(reset=True)))
+
+        linebuf.write(" (%s): " % owner)
 
         # format tag message using rules
         for matcher in RULES:
             replace = RULES[matcher]
             message = matcher.sub(replace, message)
 
-        linebuf.write(message)
+        linebuf.write("%s%s%s" % (format(fg=color, bold=True), message, format(reset=True)))
         line = linebuf.getvalue()
 
     print line
