@@ -7,7 +7,7 @@
 ## I typically invoke this script as a function in my profile:
 ##
 ## function plogcat() {
-##    adb logcat | proclogcat $1 | colorlogcat
+##    adb logcat | proclogcat $1 | coloredlogcat.py
 ## }
 ##
 ## Then run as:
