@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+##############################################################################################################
+##
+## Simple script designed to insert after "adb logcat" in a pipeline to track a
+## specific package's logcat messages.
+##
+## I typically invoke this script as a function in my profile:
+##
+## function plogcat() {
+##    adb logcat | proclogcat $1 | colorlogcat
+## }
+##
+## Then run as:
+##
+## $ plogcat org.devtcg.five
+##
+##############################################################################################################
+
+use strict;
+use Data::Dumper;
+
+##############################################################################################################
+
+my $trackingName = shift @ARGV or usage($0);
+
+# Flush all writes immediately.  This is necessary as we expect this script to
+# be placed between two other programs in a pipe which outputs text very slowly
+# (adb logcat outputs only when events happen), so it's rare to fill up the
+# buffer quickly.  Without this, the normal buffering that occurs between piped
+# programs not directly attached to a pty would prevent the user from seeing
+# messages as they arrive.
+$| = 1;
+
+# Lookup the pid of the process before we start.  From then on, rely on the
+# ActivityManager to tell us as the process dies and starts.  Set to -1 when
+# the process is presumed dead.
+my $trackingPid = get_pid($trackingName);
+
+while (<STDIN>) {
+	my $line = $_;
+	my ($level, $tag, $pid, $message) = $line =~
+			m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
+
+	chomp $message;
+
+	if ($tag eq 'ActivityManager') {
+		if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
+			if ($1 eq $trackingName) {
+				$trackingPid = $2;
+				print $line;
+			}
+		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
+			if ($trackingName eq $1 || $trackingPid == $2) {
+				$trackingPid = -1;
+				print $line;
+			}
+		}
+	} elsif ($pid == $trackingPid) {
+		print $line;
+	}
+}
+
+##############################################################################################################
+
+sub get_pid {
+	my $process = shift;
+	my @ps = qx{adb shell ps};
+	my @columns = split /\s+/, (shift @ps);
+
+	# There's a "STATE" column slipped in between WCHAN and NAME that has no
+	# room for a column...
+	splice @columns, $#columns, 0, 'STATE';
+
+	foreach (@ps) {
+		s/\s+$//;
+		my @data = split /\s+/, $_, scalar @columns;
+		my %row = map { $_ => (shift @data) } @columns;
+		return $row{PID} if $row{NAME} eq $process;
+	}
+
+	return -1;
+}
+
+sub usage {
+	my $prog = shift;
+	die <<"EOF"
+Usage: adb logcat | $0 <process-name>
+
+Usually, `process-name' is usually the same as your package, but not
+necessarily.  To make sure, type `adb shell ps' and look through the list.
+EOF
+}
+
