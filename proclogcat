@@ -35,6 +35,9 @@ $| = 1;
 # ActivityManager to tell us as the process dies and starts.  Set to -1 when
 # the process is presumed dead.
 my $trackingPid = get_pid($trackingName);
+if ($trackingPid == -1) {
+	print "- waiting for process $trackingName -\n";
+}
 
 while (<STDIN>) {
 	my $line = $_;
@@ -65,6 +68,9 @@ while (<STDIN>) {
 sub get_pid {
 	my $process = shift;
 	my @ps = qx{adb shell ps};
+	if (@ps == 0) {
+		return -1;
+	}
 	my @columns = split /\s+/, (shift @ps);
 
 	# There's a "STATE" column slipped in between WCHAN and NAME that has no
