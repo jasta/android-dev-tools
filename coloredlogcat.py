@@ -20,6 +20,8 @@
 # written by jeff sharkey, http://jsharkey.org/
 # piping detection and popen() added by other android team members
 
+# modified by Josh Guilfoyle <jasta@devtcg.org> to simplify formatting back to
+# adb logcat original.  I just want colorized logcat output, nothing fancier.
 
 import os, sys, re, StringIO
 import fcntl, termios, struct
