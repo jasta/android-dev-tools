@@ -93,7 +93,7 @@ else:
 
 while True:
     try:
-        line = input.readline()
+        line = input.readline().rstrip()
     except KeyboardInterrupt:
         break
 
