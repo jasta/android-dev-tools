@@ -7,7 +7,7 @@
 ## I typically invoke this script as a function in my profile:
 ##
 ## function plogcat() {
-##    adb logcat | proclogcat $1 | coloredlogcat.py
+##    adb logcat | proclogcat $* | coloredlogcat.py
 ## }
 ##
 ## Then run as:
@@ -21,7 +21,12 @@ use Data::Dumper;
 
 ###############################################################################
 
-my $trackingName = shift @ARGV or usage($0);
+@ARGV > 0 or usage($0);
+
+# We support tracking multiple process names.  Fill %trackingInfo keys with the
+# process names, where the values are to be filled with the current pid for
+# that process or -1 if it is presumed dead.
+my $trackingInfo = { map { $_ => -1 } @ARGV };
 
 # Flush all writes immediately.  This is necessary as we expect this script to
 # be placed between two other programs in a pipe which outputs text very slowly
@@ -31,12 +36,11 @@ my $trackingName = shift @ARGV or usage($0);
 # messages as they arrive.
 $| = 1;
 
-# Lookup the pid of the process before we start.  From then on, rely on the
-# ActivityManager to tell us as the process dies and starts.  Set to -1 when
-# the process is presumed dead.
-my $trackingPid = get_pid($trackingName);
-if ($trackingPid == -1) {
-	print "- waiting for process $trackingName -\n";
+# Lookup the pids of the processes before we start.  From then on, rely on
+# the ActivityManager to tell us as the processes dies and starts.
+my $numPids = get_pids($trackingInfo);
+if ($numPids == 0) {
+	print "- waiting for process ", join(' or ', keys %$trackingInfo), " -\n";
 }
 
 while (<STDIN>) {
@@ -48,25 +52,37 @@ while (<STDIN>) {
 
 	if ($tag eq 'ActivityManager') {
 		if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
-			if ($1 eq $trackingName) {
-				$trackingPid = $2;
+			if (exists $trackingInfo->{$1}) {
+				$trackingInfo->{$1} = $2;
 				print $line;
 			}
 		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
-			if ($trackingName eq $1 || $trackingPid == $2) {
-				$trackingPid = -1;
+			if (exists $trackingInfo->{$1}) {
+				$trackingInfo->{$1} = -1;
 				print $line;
 			}
 		}
-	} elsif ($pid == $trackingPid) {
+	} elsif (in_list($pid, values %$trackingInfo)) {
 		print $line;
 	}
 }
 
 ###############################################################################
 
-sub get_pid {
-	my $process = shift;
+sub in_list($@) {
+	my $needle = shift;
+	my @haystack = @_;
+
+	foreach my $hay (@haystack) {
+		if ($hay eq $needle) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+sub get_pids {
+	my $info = shift;
 	my @ps = qx{adb shell ps};
 	if (@ps == 0) {
 		return -1;
@@ -77,14 +93,20 @@ sub get_pid {
 	# room for a column...
 	splice @columns, $#columns, 0, 'STATE';
 
+	my $numFound = 0;
+
 	foreach (@ps) {
 		s/\s+$//;
 		my @data = split /\s+/, $_, scalar @columns;
 		my %row = map { $_ => (shift @data) } @columns;
-		return $row{PID} if $row{NAME} eq $process;
+
+		if (exists $info->{$row{NAME}}) {
+			$info->{$row{NAME}} = $row{PID};
+			$numFound++;
+		}
 	}
 
-	return -1;
+	return $numFound;
 }
 
 sub usage {
