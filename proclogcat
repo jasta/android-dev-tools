@@ -88,8 +88,7 @@ sub get_pids {
     my @data = split /\s+/, $_, scalar @columns;
     my %row = map { $_ => (shift @data) } @columns;
 
-    my $match = match_name($row{NAME});
-    if (defined $match) {
+    if (match_name($row{NAME})) {
       $trackedPids{$row{PID}} = 1;
       $numFound++;
     }
