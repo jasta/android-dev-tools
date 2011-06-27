@@ -21,7 +21,7 @@ use Data::Dumper;
 
 ###############################################################################
 
-@ARGV > 0 or usage($0);
+@ARGV > 0 and not -t STDIN or usage($0);
 
 # We support tracking multiple process names.  Fill @trackedNames with the
 # process names to match (via regular expressions).  The process IDs that we
