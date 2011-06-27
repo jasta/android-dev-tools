@@ -1,6 +1,10 @@
 #!/bin/sh
 
-cd "$(dirname "$0")" # if run from another directory
+me=$0
+link=$(readlink "$me")
+[ ! -z "$link" ] && me=$link
+
+cd "$(dirname "$me")"
 
 [ -z "$1" ] && "$0" '.*' && exit
 
