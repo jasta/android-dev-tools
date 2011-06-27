@@ -40,78 +40,78 @@ $| = 1;
 # the ActivityManager to tell us as the processes dies and starts.
 my $numPids = get_pids($trackingInfo);
 if ($numPids == 0) {
-	print "- waiting for process ", join(' or ', keys %$trackingInfo), " -\n";
+  print "- waiting for process ", join(' or ', keys %$trackingInfo), " -\n";
 }
 
 while (<STDIN>) {
-	my $line = $_;
-	my ($level, $tag, $pid, $message) = $line =~
-			m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
+  my $line = $_;
+  my ($level, $tag, $pid, $message) = $line =~
+      m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
 
-	chomp $message;
+  chomp $message;
 
-	if ($tag eq 'ActivityManager') {
-		if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
-			if (exists $trackingInfo->{$1}) {
-				$trackingInfo->{$1} = $2;
-				print $line;
-			}
-		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
-			if (exists $trackingInfo->{$1}) {
-				$trackingInfo->{$1} = -1;
-				print $line;
-			}
-		}
-	} elsif (in_list($pid, values %$trackingInfo)) {
-		print $line;
-	}
+  if ($tag eq 'ActivityManager') {
+    if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
+      if (exists $trackingInfo->{$1}) {
+        $trackingInfo->{$1} = $2;
+        print $line;
+      }
+    } elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
+      if (exists $trackingInfo->{$1}) {
+        $trackingInfo->{$1} = -1;
+        print $line;
+      }
+    }
+  } elsif (in_list($pid, values %$trackingInfo)) {
+    print $line;
+  }
 }
 
 ###############################################################################
 
 sub in_list($@) {
-	my $needle = shift;
-	my @haystack = @_;
+  my $needle = shift;
+  my @haystack = @_;
 
-	foreach my $hay (@haystack) {
-		if ($hay eq $needle) {
-			return 1;
-		}
-	}
-	return 0;
+  foreach my $hay (@haystack) {
+    if ($hay eq $needle) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 sub get_pids {
-	my $info = shift;
-	my @ps = qx{adb shell ps};
-	if (@ps == 0) {
-		return -1;
-	}
-	my @columns = split /\s+/, (shift @ps);
+  my $info = shift;
+  my @ps = qx{adb shell ps};
+  if (@ps == 0) {
+    return -1;
+  }
+  my @columns = split /\s+/, (shift @ps);
 
-	# There's a "STATE" column slipped in between WCHAN and NAME that has no
-	# room for a column...
-	splice @columns, $#columns, 0, 'STATE';
+  # There's a "STATE" column slipped in between WCHAN and NAME that has no
+  # room for a column...
+  splice @columns, $#columns, 0, 'STATE';
 
-	my $numFound = 0;
+  my $numFound = 0;
 
-	foreach (@ps) {
-		s/\s+$//;
-		my @data = split /\s+/, $_, scalar @columns;
-		my %row = map { $_ => (shift @data) } @columns;
+  foreach (@ps) {
+    s/\s+$//;
+    my @data = split /\s+/, $_, scalar @columns;
+    my %row = map { $_ => (shift @data) } @columns;
 
-		if (exists $info->{$row{NAME}}) {
-			$info->{$row{NAME}} = $row{PID};
-			$numFound++;
-		}
-	}
+    if (exists $info->{$row{NAME}}) {
+      $info->{$row{NAME}} = $row{PID};
+      $numFound++;
+    }
+  }
 
-	return $numFound;
+  return $numFound;
 }
 
 sub usage {
-	my $prog = shift;
-	die <<"EOF"
+  my $prog = shift;
+  die <<"EOF"
 Usage: adb logcat | $0 <process-name>
 
 Usually, `process-name' is usually the same as your package, but not

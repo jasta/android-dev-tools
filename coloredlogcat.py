@@ -121,15 +121,3 @@ while True:
 
     print line
     if len(line) == 0: break
-
-
-
-
-
-
-
-
-
-
-
-
