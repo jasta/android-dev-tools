@@ -53,14 +53,12 @@ while (<STDIN>) {
 
   if ($tag eq 'ActivityManager') {
     if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
-      my $match = match_name($1);
-      if (defined $match) {
+      if (match_name($1)) {
         $trackedPids{$2} = 1;
         print $line;
       }
     } elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
-      my $match = match_name($1);
-      if (defined $match) {
+      if (match_name($1)) {
         $trackedPids{$2} = 0;
         print $line;
       }
@@ -102,11 +100,10 @@ sub get_pids {
 
 sub match_name {
   my $name = shift;
-  my $match = undef;
   foreach (@trackedNames) {
-    $match = $_ if $_ and $name =~ $_;
+    return 1 if $_ and $name =~ $_;
   }
-  return $match;
+  return 0;
 }
 
 sub usage {
