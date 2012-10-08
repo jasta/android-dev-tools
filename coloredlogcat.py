@@ -80,6 +80,14 @@ TAGTYPES = {
     "E": format(fg=RED, bold=True),
 }
 
+TAGTYPENAMES = {
+    "V": "Verb ",
+    "D": "Debug",
+    "I": "Info ",
+    "W": "WARN ",
+    "E": "ERROR"
+}
+
 retag = re.compile("^([A-Z])/([^\(]+)\(([^\)]+)\): (.*)$")
 
 # to pick up -d or -e
@@ -104,7 +112,7 @@ while True:
 
         # write out tagtype colored edge
         if not tagtype in TAGTYPES: break
-        linebuf.write("%s%s%s" % (TAGTYPES[tagtype], tagtype, format(reset=True)))
+        linebuf.write("%s%s%s" % (TAGTYPES[tagtype], TAGTYPENAMES[tagtype], format(reset=True)))
 
         color = allocate_color(tag)
         linebuf.write(" / %s%s%s" % (format(fg=color, bold=True), tag, format(reset=True)))
@@ -121,15 +129,3 @@ while True:
 
     print line
     if len(line) == 0: break
-
-
-
-
-
-
-
-
-
-
-
-
