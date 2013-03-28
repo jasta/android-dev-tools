@@ -80,7 +80,7 @@ TAGTYPES = {
     "E": format(fg=RED, bold=True),
 }
 
-retag = re.compile("^([A-Z])/([^\(]+)\(([^\)]+)\): (.*)$")
+retag = re.compile("^([A-Z])/(.+?)\((\s*\d+)\): (.*)$")
 
 # to pick up -d or -e
 adb_args = ' '.join(sys.argv[1:])
