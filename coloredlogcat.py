@@ -42,13 +42,17 @@ def format(fg=None, bg=None, bright=False, bold=False, dim=False, reset=False):
         else: codes.append("22")
     return "\033[%sm" % (";".join(codes))
 
+def colorToFormat(color):
+    return format(fg=color, bold=True)
 
-LAST_USED = [RED,GREEN,YELLOW,BLUE,MAGENTA,CYAN,WHITE]
+LAST_USED = map(colorToFormat, [RED,GREEN,YELLOW,BLUE,MAGENTA,CYAN,WHITE])
 KNOWN_TAGS = {
-    "dalvikvm": BLACK,
-    "Process": YELLOW,
-    "ActivityManager": CYAN,
-    "ActivityThread": CYAN,
+    "dalvikvm": format(fg=BLACK, bold=True),
+    "Process": format(fg=YELLOW, bold=True),
+    "ActivityManager": format(fg=CYAN, bold=True),
+    "ActivityThread": format(fg=CYAN, bold=True),
+    "System.err": format(bg=BLUE),
+    "System.out": format(bg=BLUE),
 }
 
 def allocate_color(tag):
@@ -106,8 +110,8 @@ while True:
         if not tagtype in TAGTYPES: break
         linebuf.write("%s%s%s" % (TAGTYPES[tagtype], tagtype, format(reset=True)))
 
-        color = allocate_color(tag)
-        linebuf.write(" / %s%s%s" % (format(fg=color, bold=True), tag, format(reset=True)))
+        colorfmt = allocate_color(tag)
+        linebuf.write(" / %s%s%s" % (colorfmt, tag, format(reset=True)))
 
         linebuf.write(" (%s): " % owner)
 
@@ -116,20 +120,8 @@ while True:
             replace = RULES[matcher]
             message = matcher.sub(replace, message)
 
-        linebuf.write("%s%s%s" % (format(fg=color, bold=True), message, format(reset=True)))
+        linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
         line = linebuf.getvalue()
 
     print line
     if len(line) == 0: break
-
-
-
-
-
-
-
-
-
-
-
-
