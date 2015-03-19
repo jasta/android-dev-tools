@@ -56,6 +56,11 @@ while (<STDIN>) {
 				$trackingInfo->{$1} = $2;
 				print $line;
 			}
+		} elsif ($message =~ m/Start proc (\d+):(.*?)\//) {
+			if (exists $trackingInfo->{$2}) {
+				$trackingInfo->{$2} = $1;
+				print $line;
+			}
 		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
 			if (exists $trackingInfo->{$1}) {
 				$trackingInfo->{$1} = -1;
