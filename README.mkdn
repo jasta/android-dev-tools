@@ -1,0 +1,12 @@
+What is this?
+-------------
+
+This is a set of scripts to enhance and filter Android's logcat output.
+
+Usually you'll want to run:
+
+`./super-logcat.sh <interesting-process-name-regex>`
+
+So, if your process name is `com.example.myapp`, then running `./super-logcat.sh example` will show all messages related to your application.
+
+Running the `super-logcat.sh` script with no arguments will display the logcat output from every process, piped through the same formatting and coloring algorithm.

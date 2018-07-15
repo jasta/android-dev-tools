@@ -85,7 +85,7 @@ TAGTYPENAMES = {
     "E": "ERROR"
 }
 
-retag = re.compile("^([A-Z])/(.+?)\((\s*\d+)\): (.*)$")
+retag = re.compile("^([A-Z])/([^\(]+)\(([^\)]+)\): (.*)$")
 newRetag = re.compile("^([0-9-\s:.]+?)\s+(\d+)\s+(\d+)\s+([A-Z])\s+(.*?)\s*: (.*)$")
 
 # to pick up -d or -e
@@ -106,7 +106,6 @@ while True:
     match = retag.match(line)
     newMatch = newRetag.match(line)
     if not match is None:
-        # level, tag, pid, msg
         tagtype, tag, owner, message = match.groups()
         linebuf = StringIO.StringIO()
 
@@ -114,12 +113,12 @@ while True:
         if not tagtype in TAGTYPES: break
         linebuf.write("%s%s%s" % (TAGTYPES[tagtype], TAGTYPENAMES[tagtype], format(reset=True)))
 
-        colorfmt = allocate_color(tag)
-        linebuf.write(" / %s%s%s" % (colorfmt, tag, format(reset=True)))
+        color = allocate_color(tag)
+        linebuf.write(" / %s%s%s" % (format(fg=color, bold=True), tag, format(reset=True)))
 
         linebuf.write(" (%s): " % owner)
 
-        linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
+        linebuf.write("%s%s%s" % (color, message, format(reset=True)))
         line = linebuf.getvalue()
     elif not newMatch is None:
         time, owner, ppid, tagtype, tag, message = newMatch.groups()
@@ -138,4 +137,3 @@ while True:
         linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
         line = linebuf.getvalue()
     print line
-    if len(line) == 0: break

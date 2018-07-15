@@ -23,10 +23,11 @@ use Data::Dumper;
 
 @ARGV > 0 and not -t STDIN or usage($0);
 
-# We support tracking multiple process names.  Fill %trackingInfo keys with the
-# process names, where the values are to be filled with the current pid for
-# that process or -1 if it is presumed dead.
-my $trackingInfo = { map { $_ => -1 } @ARGV };
+# We support tracking multiple process names.  Fill @trackedNames with the
+# process names to match (via regular expressions).  The process IDs that we
+# are currently tracking will be stored in %trackedPids.
+my @trackedNames = @ARGV;
+my %trackedPids = ();
 
 # Flush all writes immediately.  This is necessary as we expect this script to
 # be placed between two other programs in a pipe which outputs text very slowly
@@ -38,9 +39,9 @@ $| = 1;
 
 # Lookup the pids of the processes before we start.  From then on, rely on
 # the ActivityManager to tell us as the processes dies and starts.
-my $numPids = get_pids($trackingInfo);
+my $numPids = get_pids();
 if ($numPids == 0) {
-	print "- waiting for process ", join(' or ', keys %$trackingInfo), " -\n";
+	print "- waiting for process ", join(' or ', @trackedNames), " -\n";
 }
 
 while (<STDIN>) {
@@ -49,34 +50,34 @@ while (<STDIN>) {
 			m/^([0-9-\s:.]+)\s+(\d+)\s+(\d+)\s+([A-Z])\s+(.*?)\s*: (.*)$/;
 	if ($pid == 0) {
 		($level, $tag, $pid, $message) = $line =~
-				m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
+			m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
 	}
 
 	chomp $message;
 
 	if ($tag eq 'ActivityManager') {
 		if ($message =~ m/^Start proc (.*?) .*?: pid=(\d+) /) {
-			if (exists $trackingInfo->{$1}) {
-				$trackingInfo->{$1} = $2;
+			if (match_name($1)) {
+				$trackedPids{$2} = 1;
 				print $line;
 			}
 		} elsif ($message =~ m/Start proc (\d+):(.*?)\//) {
-			if (exists $trackingInfo->{$2}) {
-				$trackingInfo->{$2} = $1;
+			if (match_name($2)) {
+				$trackedPids{$1} = 1;
 				print $line;
 			}
 		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
-			if (exists $trackingInfo->{$1}) {
-				$trackingInfo->{$1} = -1;
+			if (match_name($1)) {
+				$trackedPids{$2} = 0;
 				print $line;
 			}
 		} elsif ($message =~ m/Killing (\d+):(.*?)\//) {
-			if (exists $trackingInfo->{$1}) {
-				$trackingInfo->{$2} = $1;
+			if (match_name($2)) {
+				$trackedPids{$1} = 0;
 				print $line;
 			}
 		}
-	} elsif (in_list($pid, values %$trackingInfo)) {
+	} elsif ($trackedPids{$pid}) {
 		print $line;
 	}
 }
@@ -96,7 +97,6 @@ sub in_list($@) {
 }
 
 sub get_pids {
-	my $info = shift;
 	my @ps = qx{adb shell ps};
 	if (@ps == 0) {
 		return -1;
@@ -116,8 +116,8 @@ sub get_pids {
 		my @data = split /\s+/, $_, scalar @columns;
 		my %row = map { $_ => (shift @data) } @columns;
 
-		if (exists $info->{$row{NAME}}) {
-			$info->{$row{NAME}} = $row{PID};
+		if (match_name($row{NAME})) {
+			$trackedPids{$row{PID}} = 1;
 			$numFound++;
 		}
 	}
@@ -125,13 +125,24 @@ sub get_pids {
 	return $numFound;
 }
 
+sub match_name {
+	my $name = shift;
+	foreach (@trackedNames) {
+		return 1 if $_ and $name =~ $_;
+	}
+	return 0;
+}
+
 sub usage {
 	my $prog = shift;
 	die <<"EOF"
-Usage: adb logcat | $0 <process-name>
+Usage: adb logcat | $0 <process-name-regex> [<process2-name-regex> ...]
 
-Usually, `process-name' is usually the same as your package, but not
-necessarily.  To make sure, type `adb shell ps' and look through the list.
+Process names will be matched against the given regular expression(s),
+and only the matching processes will be shown in the output.
+
+To find processes you're interested in, type `adb shell ps' and look
+through the list.
 EOF
 }
 
