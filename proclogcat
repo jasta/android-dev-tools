@@ -21,7 +21,7 @@ use Data::Dumper;
 
 ###############################################################################
 
-@ARGV > 0 or usage($0);
+@ARGV > 0 and not -t STDIN or usage($0);
 
 # We support tracking multiple process names.  Fill %trackingInfo keys with the
 # process names, where the values are to be filled with the current pid for
@@ -45,8 +45,12 @@ if ($numPids == 0) {
 
 while (<STDIN>) {
 	my $line = $_;
-	my ($level, $tag, $pid, $message) = $line =~
-			m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
+	my ($time, $pid, $ppid, $level, $tag, $message) = $line =~
+			m/^([0-9-\s:.]+)\s+(\d+)\s+(\d+)\s+([A-Z])\s+(.*?)\s*: (.*)$/;
+	if ($pid == 0) {
+		($level, $tag, $pid, $message) = $line =~
+				m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
+	}
 
 	chomp $message;
 
@@ -64,6 +68,11 @@ while (<STDIN>) {
 		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
 			if (exists $trackingInfo->{$1}) {
 				$trackingInfo->{$1} = -1;
+				print $line;
+			}
+		} elsif ($message =~ m/Killing (\d+):(.*?)\//) {
+			if (exists $trackingInfo->{$1}) {
+				$trackingInfo->{$2} = $1;
 				print $line;
 			}
 		}
@@ -94,9 +103,11 @@ sub get_pids {
 	}
 	my @columns = split /\s+/, (shift @ps);
 
-	# There's a "STATE" column slipped in between WCHAN and NAME that has no
-	# room for a column...
-	splice @columns, $#columns, 0, 'STATE';
+	if (! in_list("S", @columns)) {
+		# There's a "STATE" column slipped in between WCHAN and NAME that has no
+		# room for a column name...
+		splice @columns, $#columns, 0, 'STATE';
+	}
 
 	my $numFound = 0;
 
