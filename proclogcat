@@ -53,6 +53,12 @@ while (<STDIN>) {
 			m/^([A-Z])\/(.*?)\(\s*(\d+)\s*\): (.*)$/;
 	}
 
+	# print line if does not match the regex
+	if ($pid == 0 && $tag == 0) {
+		print $line;
+		next;
+	}
+
 	chomp $message;
 
 	if ($tag eq 'ActivityManager') {
@@ -68,16 +74,16 @@ while (<STDIN>) {
 			}
 		} elsif ($message =~ m/Process (.*?) \(pid (\d+)\) has died./) {
 			if (match_name($1)) {
-				$trackedPids{$2} = 0;
+				delete $trackedPids{$2};
 				print $line;
 			}
 		} elsif ($message =~ m/Killing (\d+):(.*?)\//) {
 			if (match_name($2)) {
-				$trackedPids{$1} = 0;
+				delete $trackedPids{$1};
 				print $line;
 			}
 		}
-	} elsif ($trackedPids{$pid}) {
+	} elsif ($trackedPids{$pid} || in_list($tag, @trackedNames)) {
 		print $line;
 	}
 }
@@ -97,7 +103,7 @@ sub in_list($@) {
 }
 
 sub get_pids {
-	my @ps = qx{adb shell ps};
+	my @ps = qx{adb wait-for-device && adb shell ps};
 	if (@ps == 0) {
 		return -1;
 	}
@@ -136,13 +142,14 @@ sub match_name {
 sub usage {
 	my $prog = shift;
 	die <<"EOF"
-Usage: adb logcat | $0 <process-name-regex> [<process2-name-regex> ...]
+Usage: adb logcat | $0 <process-name-regex-or-tag> [<process2-name-regex-or-tag> ...]
 
 Process names will be matched against the given regular expression(s),
 and only the matching processes will be shown in the output.
+Or the tag is equals to the it and it will be shown.
 
-To find processes you're interested in, type `adb shell ps' and look
-through the list.
+Usually, `process-name' is usually the same as your package, but not
+necessarily.  To make sure, type `adb shell ps' and look through the list.
 EOF
 }
 

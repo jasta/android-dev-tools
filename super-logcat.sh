@@ -1,11 +1,14 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-me=$0
-link=$(readlink "$me")
-[ ! -z "$link" ] && me=$link
+if [ ! "$*" ]; then
+	"$0" ".+"
+	exit $?
+fi
 
-cd "$(dirname "$me")"
+dir=`dirname "$0"`
 
-[ -z "$1" ] && "$0" '.*' && exit
+if [ "`readlink $0`" ]; then
+	dir=`dirname "$(readlink $0)"`
+fi
 
-adb logcat | ./proclogcat "$@" | ./coloredlogcat.py
+adb logcat | "$dir/proclogcat" "$@" | "$dir/coloredlogcat.py"

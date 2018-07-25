@@ -48,7 +48,7 @@ def colorToFormat(color):
 LAST_USED = map(colorToFormat, [RED,GREEN,YELLOW,BLUE,MAGENTA,CYAN,WHITE])
 KNOWN_TAGS = {
     "dalvikvm": format(fg=BLACK, bold=True),
-    "AndroidRuntime": format(fg=BLACK, bold=True),
+    "AndroidRuntime": format(fg=MAGENTA, bold=True),
     "Process": format(fg=YELLOW, bold=True),
     "ActivityManager": format(fg=CYAN, bold=True),
     "ActivityThread": format(fg=CYAN, bold=True),
@@ -85,7 +85,7 @@ TAGTYPENAMES = {
     "E": "ERROR"
 }
 
-retag = re.compile("^([A-Z])/([^\(]+)\(([^\)]+)\): (.*)$")
+retag = re.compile("^([A-Z])/(.+?)\((\s*\d+)\): (.*)$")
 newRetag = re.compile("^([0-9-\s:.]+?)\s+(\d+)\s+(\d+)\s+([A-Z])\s+(.*?)\s*: (.*)$")
 
 # to pick up -d or -e
@@ -102,6 +102,7 @@ while True:
         line = input.readline().rstrip()
     except KeyboardInterrupt:
         break
+    if len(line) == 0: break
 
     match = retag.match(line)
     newMatch = newRetag.match(line)
@@ -113,12 +114,12 @@ while True:
         if not tagtype in TAGTYPES: break
         linebuf.write("%s%s%s" % (TAGTYPES[tagtype], TAGTYPENAMES[tagtype], format(reset=True)))
 
-        color = allocate_color(tag)
-        linebuf.write(" / %s%s%s" % (format(fg=color, bold=True), tag, format(reset=True)))
+        colorfmt = allocate_color(tag)
+        linebuf.write(" / %s%s%s" % (colorfmt, tag, format(reset=True)))
 
         linebuf.write(" (%s): " % owner)
 
-        linebuf.write("%s%s%s" % (color, message, format(reset=True)))
+        linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
         line = linebuf.getvalue()
     elif not newMatch is None:
         time, owner, ppid, tagtype, tag, message = newMatch.groups()
