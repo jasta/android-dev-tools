@@ -48,6 +48,7 @@ def colorToFormat(color):
 LAST_USED = map(colorToFormat, [RED,GREEN,YELLOW,BLUE,MAGENTA,CYAN,WHITE])
 KNOWN_TAGS = {
     "dalvikvm": format(fg=BLACK, bold=True),
+    "AndroidRuntime": format(fg=MAGENTA, bold=True),
     "Process": format(fg=YELLOW, bold=True),
     "ActivityManager": format(fg=CYAN, bold=True),
     "ActivityThread": format(fg=CYAN, bold=True),
@@ -67,15 +68,6 @@ def allocate_color(tag):
     return color
 
 
-RULES = {
-    #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
-}
-
-TAGTYPE_WIDTH = 1
-TAG_WIDTH = 20
-PROCESS_WIDTH = 8 # 8 or -1
-HEADER_SIZE = TAGTYPE_WIDTH + 1 + TAG_WIDTH + 1 + PROCESS_WIDTH + 1
-
 TAGTYPES = {
     "V": "",
     "D": format(fg=BLUE, bold=True),
@@ -84,7 +76,17 @@ TAGTYPES = {
     "E": format(fg=RED, bold=True),
 }
 
+
+TAGTYPENAMES = {
+    "V": "Verb ",
+    "D": "Debug",
+    "I": "Info ",
+    "W": "WARN ",
+    "E": "ERROR"
+}
+
 retag = re.compile("^([A-Z])/(.+?)\((\s*\d+)\): (.*)$")
+newRetag = re.compile("^([0-9-\s:.]+?)\s+(\d+)\s+(\d+)\s+([A-Z])\s+(.*?)\s*: (.*)$")
 
 # to pick up -d or -e
 adb_args = ' '.join(sys.argv[1:])
@@ -100,28 +102,39 @@ while True:
         line = input.readline().rstrip()
     except KeyboardInterrupt:
         break
+    if len(line) == 0: break
 
     match = retag.match(line)
+    newMatch = newRetag.match(line)
     if not match is None:
         tagtype, tag, owner, message = match.groups()
         linebuf = StringIO.StringIO()
 
         # write out tagtype colored edge
         if not tagtype in TAGTYPES: break
-        linebuf.write("%s%s%s" % (TAGTYPES[tagtype], tagtype, format(reset=True)))
+        linebuf.write("%s%s%s" % (TAGTYPES[tagtype], TAGTYPENAMES[tagtype], format(reset=True)))
 
         colorfmt = allocate_color(tag)
         linebuf.write(" / %s%s%s" % (colorfmt, tag, format(reset=True)))
 
         linebuf.write(" (%s): " % owner)
 
-        # format tag message using rules
-        for matcher in RULES:
-            replace = RULES[matcher]
-            message = matcher.sub(replace, message)
+        linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
+        line = linebuf.getvalue()
+    elif not newMatch is None:
+        time, owner, ppid, tagtype, tag, message = newMatch.groups()
+        if not tagtype in TAGTYPES: break
+
+        linebuf = StringIO.StringIO()
+        linebuf.write("%s %05s | %05s" % (time, owner, ppid))
+
+
+        # write out tagtype colored edge
+        linebuf.write(" %s%s%s" % (TAGTYPES[tagtype], TAGTYPENAMES[tagtype], format(reset=True)))
+
+        colorfmt = allocate_color(tag)
+        linebuf.write(" / %s%s%s: " % (colorfmt, tag, format(reset=True)))
 
         linebuf.write("%s%s%s" % (colorfmt, message, format(reset=True)))
         line = linebuf.getvalue()
-
     print line
-    if len(line) == 0: break
